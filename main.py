@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 from auth import authenticate_user, create_access_token, get_user
 from database import SessionLocal
 from models import User, Task
-from schemas import UserCreate, TaskCreate
+from schemas import UserCreate, TaskCreate,UserResponse,LoginRequest,TaskResponse,TaskUpdate
 from auth import get_password_hash
 from typing import List
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import crud
 import os
 app = FastAPI()
 
@@ -32,8 +33,8 @@ def get_db():
 
 # User login
 @app.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
+async def login(info:LoginRequest , db: Session = Depends(get_db)):
+    user = authenticate_user(db, info.email, info.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -43,6 +44,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.post("/register", response_model=UserResponse)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    return crud.create_user(db, user)
 # Get current user
 from jose import JWTError, jwt
 
@@ -90,12 +94,46 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User deleted"}
 
-# Normal user can view tasks assigned to them
+# Normal user task crud can view tasks assigned to them
 @app.get("/tasks", dependencies=[Depends(user_only)])
 def get_user_tasks(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Task).filter(Task.owner_id == current_user.id).all()
 
-# Admin can view all tasks
+@app.post("/tasks", dependencies=[Depends(user_only)],response_model=TaskResponse)
+def create_new_task( task: TaskCreate,db: Session = Depends(get_db)):
+    return crud.create_task(db,task,task.owner_id)
+
+@app.put("/tasks", dependencies=[Depends(user_only)],response_model=TaskResponse)
+def update_a_task(task: TaskResponse,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id != task.owner_id:
+       return {"message": "Not Authorized"}
+    return crud.update_task(db,task.id,task)
+
+@app.delete("/tasks", dependencies=[Depends(user_only)],response_model=TaskResponse)
+def delete_a_task(task: TaskCreate,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id != task.owner_id:
+       return {"message": "Not Authorized"}
+    return crud.delete_task(db,task.id)
+
+
+
+# Admin crud all tasks
 @app.get("/tasks/admin", dependencies=[Depends(admin_only)])
 def get_all_tasks(db: Session = Depends(get_db)):
     return db.query(Task).all()
+
+@app.post("/tasks/admin", dependencies=[Depends(admin_only)],response_model=TaskResponse)
+def create_new_task( task: TaskCreate,db: Session = Depends(get_db)):
+    return crud.create_task(db,task,task.owner_id)
+
+@app.put("/tasks/admin", dependencies=[Depends(admin_only)],response_model=TaskResponse)
+def update_a_task(task: TaskResponse,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != 'admin':
+       return {"message": "Not Authorized"}
+    return crud.update_task(db,task.id,task)
+
+@app.delete("/tasks/admin", dependencies=[Depends(admin_only)],response_model=TaskResponse)
+def delete_a_task(task: TaskCreate,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != 'admin':
+       return {"message": "Not Authorized"}
+    return crud.delete_task(db,task.id)

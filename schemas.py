@@ -17,6 +17,10 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    
 # Task Schemas
 class TaskCreate(BaseModel):
     title: str
