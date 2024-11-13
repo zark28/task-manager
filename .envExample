@@ -1,10 +1,9 @@
-# .env
-
 # Database connection
-DATABASE_URL=postgresql://username:password@localhost:5432/mydatabase
-
+DATABASE_URL=postgresql://postgres:12345@localhost:5432/task_manager
+SECRET_KEY=mysecretkey
 # SMTP Email configuration
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 SENDER_EMAIL=your_email@gmail.com
+SENDER_PASSWORD=your_app_password
 SENDER_PASSWORD=your_app_password
